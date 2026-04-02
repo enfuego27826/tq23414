@@ -1,1 +1,74 @@
-{"Trexquant Earnings Return Prediction \u2014 Progressive Hypothesis Testing Pipeline\n\nChallenge: 2025 Q4 | Metric: Pearson Correlation Coefficient\n\n  -----------------------------------------------------------------------\n  Experiment        Model             Key Idea          Expected IC\n  ----------------- ----------------- ----------------- -----------------\n  1                 Ridge +           Linear baseline   Low positive\n                    ElasticNet        (raw features)    \n\n  2                 Ridge (XS-rank)   Cross-sectional   Slight +\u0394\n                                      rank              \n                                      normalization     \n\n  3                 LightGBM (raw)    Tree baseline, no +\u0394 vs linear\n                                      FE                \n\n  4                 LightGBM          Does rank help    Neutral\n                    (XS-rank)         trees?            \n\n  5                 LightGBM (FE)     Group context +   +\u0394\n                                      lag features      \n\n  6                 Equal-weight      Ensemble          +\u0394\n                    blend             diversity         \n\n  7                 Optimized blend   Weight            Slight +\u0394\n                                      optimization via  \n                                      Nelder-Mead       \n\n  8                 Tuned LGB         Stronger params + +\u0394\n                                      full FE           \n\n  9                 XGBoost           Complementary     +\u0394 blend\n                    (optional)        GBDT              \n\n  10                CatBoost          Native            +\u0394 blend\n                    (optional)        categoricals      \n\n  11                GBDT meta-stack   Stack OOF preds + +\u0394 vs blend\n                                      raw feat          \n\n  12                LSTM (optional)   Temporal sequence Meta-feature\n                                      branch            \n  -----------------------------------------------------------------------\n\n    # ": null, " replace NaN with column median\n    oof_matrix ": null}
+{
+  "title": "Trexquant Earnings Return Prediction \u2014 Improved Progressive Pipeline",
+  "version": "2.0",
+  "target_metric": "Pearson Correlation Coefficient",
+  "baseline_pearson": "~0.025",
+  "target_pearson": ">=0.04",
+  "changes": {
+    "1_cv_leakage_hardening": {
+      "description": "Purged walk-forward splits by di with embargo; all transforms fit on train fold only",
+      "cells": [
+        "Cell 7 (make_time_folds)",
+        "Cell 9 (fill_na_median)"
+      ]
+    },
+    "2_target_geometry_alignment": {
+      "description": "Date-wise rank-normalised and z-scored target variants; models trained on transformed targets, evaluated on original Pearson",
+      "cells": [
+        "Cell 11 (make_rank_target, make_zscore_target)"
+      ]
+    },
+    "3_xs_feature_upgrades": {
+      "description": "Added per-date robust z-score (MAD-based) and sector-relative rank transforms for all/top features",
+      "cells": [
+        "Cell 19 (xs_robust_zscore, xs_sector_rank)"
+      ]
+    },
+    "4_regime_specialist_models": {
+      "description": "Separate LightGBM models for top500 vs non-top500 liquidity segments with clean OOF routing",
+      "cells": [
+        "Cell 41 (ExpR_Regime_Specialist)"
+      ]
+    },
+    "5_model_diversity": {
+      "description": "Second LightGBM with orthogonal params (deeper trees, aggressive colsample, lower LR, rank target); XGBoost API fixed for v3.x",
+      "cells": [
+        "Cell 39 (ExpD_LGB_Diverse)",
+        "Cell 43 (Exp9_XGBoost \u2014 early_stopping_rounds in constructor)"
+      ]
+    },
+    "6_pearson_first_blending": {
+      "description": "Constrained SLSQP non-negative sum-to-1 OOF weight optimisation with fold-consistency stability check",
+      "cells": [
+        "Cell 49 (ExpB_ConstrainedBlend)"
+      ]
+    },
+    "7_post_processing": {
+      "description": "Per-date z-score standardisation of final predictions; submission safety checks (finite, >=10% non-zero)",
+      "cells": [
+        "Cell 51 (postprocess_preds)",
+        "Cell 56 (submission_guard)"
+      ]
+    },
+    "8_feature_detection_fix": {
+      "description": "Robust 3-tier feature detection: strict f\\d+, then f_*/feat*/feature*, then numeric fallback; safe pd.to_numeric casting",
+      "cells": [
+        "Cell 4 (detect_feature_cols)"
+      ]
+    }
+  },
+  "key_cells_to_run": {
+    "fast_toggle": "Cell 1 \u2014 set FAST_MODE, USE_* flags",
+    "feature_setup": "Cell 4 \u2014 data loading and schema detection",
+    "target_variants": "Cell 11 \u2014 date-wise target geometry",
+    "xs_features": "Cell 19 \u2014 robust z-score and sector-relative rank",
+    "fe_assembly": "Cell 30 \u2014 full feature matrix assembly + LGB Exp5",
+    "diverse_lgb": "Cell 39 \u2014 LGB with orthogonal params + rank target",
+    "regime_lgb": "Cell 41 \u2014 top500 vs non-top500 specialist",
+    "xgboost_fixed": "Cell 43 \u2014 XGBoost (API-safe, USE_XGB=True to enable)",
+    "constrained_blend": "Cell 49 \u2014 SLSQP optimal blend",
+    "post_processing": "Cell 51 \u2014 per-date standardisation",
+    "submission": "Cells 56-57 \u2014 guard + write submission.csv"
+  },
+  "xgboost_api_fix": "early_stopping_rounds moved from fit() to XGBRegressor constructor (required for XGBoost >= 2.0/3.x)"
+}
